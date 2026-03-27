@@ -15,4 +15,6 @@ data/processed/
 data/outputs/
 mlruns/
 
+outputs/
+
 .env
