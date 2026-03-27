@@ -2,9 +2,6 @@
 
 > End-to-end customer health scoring, churn prediction, and AI-powered ticket analysis for SaaS CX teams.
 
-## Live demo
-https://saas-intelligence-platform.streamlit.app
-
 ## Quick Start
 
 Install dependencies:
