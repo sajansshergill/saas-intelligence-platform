@@ -6,6 +6,9 @@ Streamlit CX Stakeholder Dashboard
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 os.makedirs("outputs", exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", os.path.abspath("outputs/.mplconfig"))
@@ -28,21 +31,63 @@ st.set_page_config(
 
 DB_PATH = "data/processed/saas_crm.duckdb"
 
+PIPELINE_STEPS: list[tuple[str, str]] = [
+    ("Data Generation", "src/data/generate_data.py"),
+    ("Feature Engineering & Health Scoring", "src/features/feature_engineering.py"),
+    ("Churn Prediction Model", "src/models/churn_model.py"),
+    ("NLP Ticket Analysis (mock without key)", "src/nlp/ticket_analyzer.py"),
+]
+
+
+def db_exists() -> bool:
+    return Path(DB_PATH).exists()
+
+
+def initialize_demo_db() -> None:
+    Path("data/raw").mkdir(parents=True, exist_ok=True)
+    Path("data/processed").mkdir(parents=True, exist_ok=True)
+    for _, script in PIPELINE_STEPS:
+        # Use Streamlit Cloud's python runtime (sys.executable)
+        subprocess.run([sys.executable, script], check=True)
+
 
 @st.cache_data
 def load_data():
     con = duckdb.connect(DB_PATH, read_only=True)
-    tables = con.execute("SHOW TABLES").df()["name"].tolist()
-    predictions = con.execute("SELECT * FROM predictions").df() if "predictions" in tables else pd.DataFrame()
-    tickets_raw = (
-        con.execute("SELECT * FROM support_tickets").df() if "support_tickets" in tables else pd.DataFrame()
-    )
-    ticket_analysis = (
-        con.execute("SELECT * FROM ticket_analysis").df() if "ticket_analysis" in tables else pd.DataFrame()
-    )
-    con.close()
-    return predictions, tickets_raw, ticket_analysis
+    try:
+        tables = con.execute("SHOW TABLES").df()["name"].tolist()
+        predictions = (
+            con.execute("SELECT * FROM predictions").df() if "predictions" in tables else pd.DataFrame()
+        )
+        tickets_raw = (
+            con.execute("SELECT * FROM support_tickets").df()
+            if "support_tickets" in tables
+            else pd.DataFrame()
+        )
+        ticket_analysis = (
+            con.execute("SELECT * FROM ticket_analysis").df()
+            if "ticket_analysis" in tables
+            else pd.DataFrame()
+        )
+        return predictions, tickets_raw, ticket_analysis
+    finally:
+        con.close()
 
+
+if not db_exists():
+    st.title("🏥 SaaS Customer Health Intelligence Platform")
+    st.warning("Demo database not found yet. Initialize data to launch the dashboard.")
+    st.markdown(
+        "- This will generate synthetic customers + support tickets, compute health scores, train a churn model, and create mock ticket insights.\n"
+        "- On Streamlit Cloud this runs once per fresh deployment."
+    )
+
+    if st.button("Initialize demo data (recommended)", type="primary"):
+        with st.spinner("Initializing demo dataset + models..."):
+            initialize_demo_db()
+        st.cache_data.clear()
+        st.rerun()
+    st.stop()
 
 df, tickets_raw, ticket_analysis = load_data()
 
