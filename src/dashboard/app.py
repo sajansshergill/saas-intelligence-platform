@@ -46,6 +46,8 @@ def db_exists() -> bool:
 def initialize_demo_db() -> None:
     Path("data/raw").mkdir(parents=True, exist_ok=True)
     Path("data/processed").mkdir(parents=True, exist_ok=True)
+    # Ensure MLflow writes to a writable path on Streamlit Cloud
+    os.environ.setdefault("MLFLOW_TRACKING_URI", f"file:{os.path.abspath('data/processed/mlruns')}")
     for _, script in PIPELINE_STEPS:
         # Use Streamlit Cloud's python runtime (sys.executable)
         subprocess.run([sys.executable, script], check=True)

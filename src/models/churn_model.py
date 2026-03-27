@@ -50,6 +50,16 @@ FEATURE_COLS = [
 ]
 TARGET = "churn"
 
+def configure_mlflow() -> None:
+    """
+    Streamlit Cloud can mount the repo read-only. Force MLflow to use a writable local
+    file store so training doesn't crash.
+    """
+    default_store = os.path.abspath("data/processed/mlruns")
+    os.makedirs(default_store, exist_ok=True)
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI") or f"file:{default_store}"
+    mlflow.set_tracking_uri(tracking_uri)
+
 
 def load_features(db_path: str = "data/processed/saas_crm.duckdb") -> pd.DataFrame:
     con = duckdb.connect(db_path)
@@ -59,6 +69,8 @@ def load_features(db_path: str = "data/processed/saas_crm.duckdb") -> pd.DataFra
 
 
 def train_model(df: pd.DataFrame):
+    configure_mlflow()
+
     X = df[FEATURE_COLS]
     y = df[TARGET]
 
